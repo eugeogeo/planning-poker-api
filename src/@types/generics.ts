@@ -6,5 +6,7 @@ export interface Player {
 
 export interface Room {
   type: string;
+  adminId: string;
+  showVotes: boolean;
   players: Player[];
 }
