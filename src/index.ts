@@ -1,7 +1,7 @@
 import http from "node:http";
 import express from "express";
 import { Server } from "socket.io";
-import { Player, Room } from "./@types/generics";
+import type { Room } from "./@types/generics";
 
 const app = express();
 const server = http.createServer(app);
