@@ -98,6 +98,11 @@ io.on("connection", (socket) => {
     }
   });
 
+  // --- REAÇÕES (EMOJIS) ---
+  socket.on("send_reaction", ({ roomId, targetPlayerId, emoji }) => {
+    io.to(roomId).emit("receive_reaction", { targetPlayerId, emoji });
+  });
+
   // Desconexão
   socket.on("disconnect", () => {
     for (const roomId in rooms) {
