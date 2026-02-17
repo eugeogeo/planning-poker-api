@@ -32,14 +32,12 @@ io.on("connection", (socket) => {
 
   socket.on("join_room", ({ playerName, roomId, isSpectator }, callback) => {
     const room = rooms[roomId];
-
     if (room) {
       const existingPlayerIndex = room.players.findIndex((p) => p.id === socket.id);
 
       if (existingPlayerIndex !== -1) {
         room.players[existingPlayerIndex].name = playerName;
         room.players[existingPlayerIndex].isSpectator = !!isSpectator;
-        socket.join(roomId);
       } else {
         room.players.push({
           id: socket.id,
@@ -47,7 +45,6 @@ io.on("connection", (socket) => {
           vote: null,
           isSpectator: !!isSpectator,
         });
-        socket.join(roomId);
       }
 
       io.to(roomId).emit("room_updated", room);
