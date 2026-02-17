@@ -16,77 +16,67 @@ const rooms: Record<string, Room> = {};
 io.on("connection", (socket) => {
   console.log(`🔌 Novo cliente conectado: ${socket.id}`);
 
-  // Criar Sala
-  socket.on("create_room", ({ playerName, roomType }, callback) => {
+  socket.on("create_room", ({ playerName, roomType, isSpectator }, callback) => {
     const roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
 
     rooms[roomId] = {
       type: roomType,
       adminId: socket.id,
       showVotes: false,
-      players: [{ id: socket.id, name: playerName, vote: null }],
+      players: [{ id: socket.id, name: playerName, vote: null, isSpectator: !!isSpectator }],
     };
 
     socket.join(roomId);
-
-    if (callback) {
-      callback({ success: true, roomId });
-    }
+    if (callback) callback({ success: true, roomId });
   });
 
-  // Entrar na Sala
-  socket.on("join_room", ({ playerName, roomId }, callback) => {
+  socket.on("join_room", ({ playerName, roomId, isSpectator }, callback) => {
     const room = rooms[roomId];
 
     if (room) {
-      // Verifica se o jogador já existe para evitar duplicados
       const existingPlayerIndex = room.players.findIndex((p) => p.id === socket.id);
 
       if (existingPlayerIndex !== -1) {
         room.players[existingPlayerIndex].name = playerName;
+        room.players[existingPlayerIndex].isSpectator = !!isSpectator;
         socket.join(roomId);
       } else {
-        room.players.push({ id: socket.id, name: playerName, vote: null });
+        room.players.push({
+          id: socket.id,
+          name: playerName,
+          vote: null,
+          isSpectator: !!isSpectator,
+        });
         socket.join(roomId);
       }
 
       io.to(roomId).emit("room_updated", room);
-
-      if (callback) {
-        callback({ success: true, roomId, roomType: room.type });
-      }
+      if (callback) callback({ success: true, roomId, roomType: room.type });
     } else {
-      if (callback) {
-        callback({ error: "Sala não encontrada" });
-      }
+      if (callback) callback({ error: "Sala não encontrada" });
     }
   });
 
-  // Votar
   socket.on("vote", ({ roomId, vote }) => {
     const room = rooms[roomId];
     if (room && !room.showVotes) {
       const player = room.players.find((p) => p.id === socket.id);
-      if (player) {
+
+      if (player && !player.isSpectator) {
         player.vote = vote;
         io.to(roomId).emit("room_updated", room);
       }
     }
   });
 
-  // --- NOVAS FUNCIONALIDADES DE ADMIN ---
-
-  // Revelar Cartas
   socket.on("reveal_cards", ({ roomId }) => {
     const room = rooms[roomId];
-
     if (room && room.adminId === socket.id) {
       room.showVotes = true;
       io.to(roomId).emit("room_updated", room);
     }
   });
 
-  // Nova Rodada (Limpar votos)
   socket.on("start_new_round", ({ roomId }) => {
     const room = rooms[roomId];
     if (room && room.adminId === socket.id) {
@@ -98,18 +88,15 @@ io.on("connection", (socket) => {
     }
   });
 
-  // --- REAÇÕES (EMOJIS) ---
   socket.on("send_reaction", ({ roomId, targetPlayerId, emoji }) => {
     io.to(roomId).emit("receive_reaction", { targetPlayerId, emoji });
   });
 
-  // Desconexão
   socket.on("disconnect", () => {
     for (const roomId in rooms) {
       const index = rooms[roomId].players.findIndex((p) => p.id === socket.id);
       if (index !== -1) {
         rooms[roomId].players.splice(index, 1);
-
         io.to(roomId).emit("room_updated", rooms[roomId]);
       }
     }
