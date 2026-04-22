@@ -48,7 +48,8 @@ io.on("connection", (socket) => {
       }
 
       io.to(roomId).emit("room_updated", room);
-      if (callback) callback({ success: true, roomId, roomType: room.type });
+      if (callback)
+        callback({ success: true, roomId, roomType: room.type, isSpectator: !!isSpectator });
     } else {
       if (callback) callback({ error: "Sala não encontrada" });
     }
