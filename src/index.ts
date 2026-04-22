@@ -13,17 +13,24 @@ const io = new Server(server, {
 
 const rooms: Record<string, Room> = {};
 
+function normalizeIsSpectator(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return false;
+}
+
 io.on("connection", (socket) => {
   console.log(`🔌 Novo cliente conectado: ${socket.id}`);
 
   socket.on("create_room", ({ playerName, roomType, isSpectator }, callback) => {
     const roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const spectator = normalizeIsSpectator(isSpectator);
 
     rooms[roomId] = {
       type: roomType,
       adminId: socket.id,
       showVotes: false,
-      players: [{ id: socket.id, name: playerName, vote: null, isSpectator: !!isSpectator }],
+      players: [{ id: socket.id, name: playerName, vote: null, isSpectator: spectator }],
     };
 
     socket.join(roomId);
@@ -33,23 +40,25 @@ io.on("connection", (socket) => {
   socket.on("join_room", ({ playerName, roomId, isSpectator }, callback) => {
     const room = rooms[roomId];
     if (room) {
+      const spectator = normalizeIsSpectator(isSpectator);
       const existingPlayerIndex = room.players.findIndex((p) => p.id === socket.id);
+
+      socket.join(roomId);
 
       if (existingPlayerIndex !== -1) {
         room.players[existingPlayerIndex].name = playerName;
-        room.players[existingPlayerIndex].isSpectator = !!isSpectator;
       } else {
         room.players.push({
           id: socket.id,
           name: playerName,
           vote: null,
-          isSpectator: !!isSpectator,
+          isSpectator: spectator,
         });
       }
 
       io.to(roomId).emit("room_updated", room);
       if (callback)
-        callback({ success: true, roomId, roomType: room.type, isSpectator: !!isSpectator });
+        callback({ success: true, roomId, roomType: room.type, isSpectator: spectator });
     } else {
       if (callback) callback({ error: "Sala não encontrada" });
     }
